@@ -84,8 +84,6 @@ void gpsInit(uint32_t baudrate)
 
     // catch some GPS frames. TODO check this
     delay(1000);
-    if (GPS_Present)
-        sensorsSet(SENSOR_GPS);
 }
 
 static void gpsPrint(const char *str)
@@ -706,9 +704,9 @@ static uint32_t GPS_coord_to_degrees(char *s)
 */
 
 #define DIGIT_TO_VAL(_x)    (_x - '0')
-uint32_t GPS_coord_to_degrees(char* s)
+uint32_t GPS_coord_to_degrees(const char* s)
 {
-    char *p, *q;
+    const char *p, *q;
     uint8_t deg = 0, min = 0;
     unsigned int frac_min = 0;
     int i;
@@ -981,7 +979,7 @@ static bool _new_position;
 // do we have new speed information?
 static bool _new_speed;
 
-static uint8_t _disable_counter;
+//static uint8_t _disable_counter;
 
 // Receive buffer
 static union {

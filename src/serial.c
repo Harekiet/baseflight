@@ -57,7 +57,7 @@ struct box_t {
     const uint8_t boxIndex;         // this is from boxnames enum
     const char *boxName;            // GUI-readable box name
     const uint8_t permanentId;      // 
-} boxes[] = {
+} const boxes[] = {
     { BOXARM, "ARM;", 0 },
     { BOXANGLE, "ANGLE;", 1 },
     { BOXHORIZON, "HORIZON;", 2 },
@@ -86,6 +86,7 @@ static uint8_t availableBoxes[CHECKBOXITEMS];
 // this is the number of filled indexes in above array
 static uint8_t numberBoxItems = 0;
 
+#if 0
 static const char boxnames[] =
     "ARM;"
     "ANGLE;"
@@ -108,7 +109,7 @@ static const char boxnames[] =
     "GOVERNOR;"
     "OSD SW;";
 
-const uint8_t boxids[] = {      // permanent IDs associated to boxes. This way, you can rely on an ID number to identify a BOX function.
+static const uint8_t boxids[] = {      // permanent IDs associated to boxes. This way, you can rely on an ID number to identify a BOX function.
     0,                          // "ARM;"
     1,                          // "ANGLE;"
     2,                          // "HORIZON;"
@@ -130,6 +131,8 @@ const uint8_t boxids[] = {      // permanent IDs associated to boxes. This way, 
     18,                         // "GOVERNOR;"
     19,                         // "OSD_SWITCH;"
 };
+
+#endif
 
 static const char pidnames[] =
     "ROLL;"
@@ -293,7 +296,7 @@ void serialInit(uint32_t baudrate)
 
 static void evaluateCommand(void)
 {
-    uint32_t i;
+    uint32_t i, tmp;
     uint8_t wp_no;
     int32_t lat = 0, lon = 0, alt = 0;
 
@@ -370,19 +373,47 @@ static void evaluateCommand(void)
         serialize16(cycleTime);
         serialize16(i2cGetErrorCounter());
         serialize16(sensors(SENSOR_ACC) | sensors(SENSOR_BARO) << 1 | sensors(SENSOR_MAG) << 2 | sensors(SENSOR_GPS) << 3 | sensors(SENSOR_SONAR) << 4);
-        serialize32(f.ANGLE_MODE << BOXANGLE | f.HORIZON_MODE << BOXHORIZON |
-                    f.BARO_MODE << BOXBARO | f.MAG_MODE << BOXMAG | f.HEADFREE_MODE << BOXHEADFREE | rcOptions[BOXHEADADJ] << BOXHEADADJ |
-                    rcOptions[BOXCAMSTAB] << BOXCAMSTAB | rcOptions[BOXCAMTRIG] << BOXCAMTRIG |
-                    f.GPS_HOME_MODE << BOXGPSHOME | f.GPS_HOLD_MODE << BOXGPSHOLD |
-                    f.PASSTHRU_MODE << BOXPASSTHRU |
-                    rcOptions[BOXBEEPERON] << BOXBEEPERON |
-                    rcOptions[BOXLEDMAX] << BOXLEDMAX |
-                    rcOptions[BOXLLIGHTS] << BOXLLIGHTS |
-                    rcOptions[BOXVARIO] << BOXVARIO |
-                    rcOptions[BOXCALIB] << BOXCALIB |
-                    rcOptions[BOXGOV] << BOXGOV |
-                    rcOptions[BOXOSD] << BOXOSD |
-                    f.ARMED << BOXARM);
+        //Serialize the boxes in the order we delivered them
+        tmp = 0;
+        for ( i = 0; i < numberBoxItems; i++ ) {
+        	uint8_t val, box = availableBoxes[i];
+        	switch ( box ) {
+        	//Handle the special cases
+        	case BOXANGLE:
+        		val = f.ANGLE_MODE;
+        		break;
+        	case BOXHORIZON:
+        		val = f.HORIZON_MODE;
+        		break;
+        	case BOXMAG:
+        		val = f.MAG_MODE;
+        		break;
+        	case BOXBARO:
+        		val = f.BARO_MODE;
+        		break;
+        	case BOXHEADFREE:
+        		val = f.HEADFREE_MODE;
+        		break;
+        	case BOXGPSHOME:
+        		val = f.GPS_HOME_MODE;
+        		break;
+        	case BOXGPSHOLD:
+        		val = f.GPS_HOLD_MODE;
+        		break;
+        	case BOXPASSTHRU:
+        		val = f.PASSTHRU_MODE;
+        		break;
+        	case BOXARM:
+        		val = f.ARMED;
+        		break;
+        	default:
+        		//These just directly rely on their RC inputs
+        		val = rcOptions[ box ];
+        		break;
+        	}
+        	tmp |= ( val << i );
+        }
+        serialize32( tmp );
         serialize8(mcfg.current_profile);
         break;
     case MSP_RAW_IMU:
@@ -471,7 +502,6 @@ static void evaluateCommand(void)
             serialize16(cfg.activate[availableBoxes[i]]);
         break;
     case MSP_BOXNAMES:
-        // headSerialReply(sizeof(boxnames) - 1);
         serializeBoxNamesReply();
         break;
     case MSP_BOXIDS:

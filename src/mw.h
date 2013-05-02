@@ -169,7 +169,7 @@ typedef struct config_t {
     float baro_noise_lpf;                   // additional LPF to reduce baro noise
     float baro_cf;                          // apply Complimentary Filter to keep the calculated velocity based on baro velocity (i.e. near real velocity)
 
-    uint16_t activate[CHECKBOXITEMS];       // activate switches
+    uint16_t activate[CHECKBOXITEMS];       // activate switches, masks of the 4 aux lo/mid/hi states
 
     // Radio/ESC-related configuration
     uint8_t deadband;                       // introduce a deadband around the stick center for pitch and roll axis. Must be greater than zero.

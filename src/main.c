@@ -96,8 +96,11 @@ int main(void)
     } else {
         // spektrum and GPS are mutually exclusive
         // Optional GPS - available in both PPM and PWM input mode, in PWM input, reduces number of available channels by 2.
-        if (feature(FEATURE_GPS))
+        if (feature(FEATURE_GPS)) {
             gpsInit(mcfg.gps_baudrate);
+            //Gonna assume the gps is present if you enable the future
+            sensorsSet(SENSOR_GPS);
+        }
     }
 #ifdef SONAR
     // sonar stuff only works with PPM
