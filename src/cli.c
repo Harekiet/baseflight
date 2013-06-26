@@ -3,20 +3,20 @@
 
 // we unset this on 'exit'
 extern uint8_t cliMode;
-static void cliAux(char *cmdline);
-static void cliCMix(char *cmdline);
-static void cliDefaults(char *cmdline);
-static void cliDump(char *cmdLine);
-static void cliExit(char *cmdline);
-static void cliFeature(char *cmdline);
-static void cliHelp(char *cmdline);
-static void cliMap(char *cmdline);
-static void cliMixer(char *cmdline);
-static void cliProfile(char *cmdline);
-static void cliSave(char *cmdline);
-static void cliSet(char *cmdline);
-static void cliStatus(char *cmdline);
-static void cliVersion(char *cmdline);
+static void cliAux( const char *cmdline);
+static void cliCMix( const char *cmdline);
+static void cliDefaults( const char *cmdline);
+static void cliDump( const char *cmdLine);
+static void cliExit( const char *cmdline);
+static void cliFeature( const char *cmdline);
+static void cliHelp( const char *cmdline);
+static void cliMap( const char *cmdline);
+static void cliMixer( const char *cmdline);
+static void cliProfile( const char *cmdline);
+static void cliSave( const char *cmdline);
+static void cliSet( const char *cmdline);
+static void cliStatus( const char *cmdline);
+static void cliVersion( const char *cmdline);
 
 // from sensors.c
 extern uint8_t batteryCellCount;
@@ -59,9 +59,9 @@ const char * const accNames[] = {
 };
 
 typedef struct {
-    char *name;
-    char *param;
-    void (*func)(char *cmdline);
+    const char *name;
+    const char *param;
+    void (*func)( const char *cmdline);
 } clicmd_t;
 
 // should be sorted a..z for bsearch()
@@ -347,7 +347,7 @@ static char *ftoa(float x, char *floatString)
     int32_t value;
     char intString1[12];
     char intString2[12] = { 0, };
-    char *decimalPoint = ".";
+    const char *decimalPoint = ".";
     uint8_t dpLocation;
 
     if (x > 0)                  // Rounding for x.xxx display format
@@ -397,15 +397,16 @@ static void cliPrompt(void)
 
 static int cliCompare(const void *a, const void *b)
 {
-    const clicmd_t *ca = a, *cb = b;
+    const clicmd_t *ca = (const clicmd_t *)a;
+    const clicmd_t *cb = (const clicmd_t *)b;
     return strncasecmp(ca->name, cb->name, strlen(cb->name));
 }
 
-static void cliAux(char *cmdline)
+static void cliAux( const char *cmdline)
 {
     int i, val = 0;
     uint8_t len;
-    char *ptr;
+    const char *ptr;
 
     len = strlen(cmdline);
     if (len == 0) {
@@ -425,14 +426,14 @@ static void cliAux(char *cmdline)
     }
 }
 
-static void cliCMix(char *cmdline)
+static void cliCMix( const char *cmdline)
 {
     int i, check = 0;
     int num_motors = 0;
     uint8_t len;
     char buf[16];
     float mixsum[3];
-    char *ptr;
+    const char *ptr;
 
     len = strlen(cmdline);
 
@@ -515,7 +516,7 @@ static void cliCMix(char *cmdline)
     }
 }
 
-static void cliDefaults(char *cmdline)
+static void cliDefaults( const char *cmdline)
 {
     uartPrint("Resetting to defaults...\r\n");
     checkFirstTime(true);
@@ -524,10 +525,10 @@ static void cliDefaults(char *cmdline)
     systemReset(false);
 }
 
-static void cliDump(char *cmdline)
+static void cliDump(const char *cmdline)
 {
     
-    int i;
+    unsigned int i;
     char buf[16];
     float thr, roll, pitch, yaw;
     uint32_t mask;
@@ -596,7 +597,7 @@ static void cliDump(char *cmdline)
     }
 }
 
-static void cliExit(char *cmdline)
+static void cliExit( const char *cmdline)
 {
     uartPrint("\r\nLeaving CLI mode...\r\n");
     *cliBuffer = '\0';
@@ -606,7 +607,7 @@ static void cliExit(char *cmdline)
     cliSave(cmdline);
 }
 
-static void cliFeature(char *cmdline)
+static void cliFeature( const char *cmdline)
 {
     uint32_t i;
     uint32_t len;
@@ -662,7 +663,7 @@ static void cliFeature(char *cmdline)
     }
 }
 
-static void cliHelp(char *cmdline)
+static void cliHelp( const char *cmdline)
 {
     uint32_t i = 0;
 
@@ -671,7 +672,7 @@ static void cliHelp(char *cmdline)
         printf("%s\t%s\r\n", cmdTable[i].name, cmdTable[i].param);
 }
 
-static void cliMap(char *cmdline)
+static void cliMap( const char *cmdline)
 {
     uint32_t len;
     uint32_t i;
@@ -680,16 +681,18 @@ static void cliMap(char *cmdline)
     len = strlen(cmdline);
 
     if (len == 8) {
-        // uppercase it
+    	// uppercase it
         for (i = 0; i < 8; i++)
-            cmdline[i] = toupper(cmdline[i]);
+            out[i] = toupper(cmdline[i]);
+        //terminate it
+        out[8] = 0;
         for (i = 0; i < 8; i++) {
-            if (strchr(rcChannelLetters, cmdline[i]) && !strchr(cmdline + i + 1, cmdline[i]))
+            if (strchr(rcChannelLetters, out[i]) && !strchr(out + i + 1, out[i]))
                 continue;
             uartPrint("Must be any order of AETR1234\r\n");
             return;
         }
-        parseRcChannels(cmdline);
+        parseRcChannels(out);
     }
     uartPrint("Current assignment: ");
     for (i = 0; i < 8; i++)
@@ -698,7 +701,7 @@ static void cliMap(char *cmdline)
     printf("%s\r\n", out);
 }
 
-static void cliMixer(char *cmdline)
+static void cliMixer( const char *cmdline)
 {
     int i;
     int len;
@@ -732,7 +735,7 @@ static void cliMixer(char *cmdline)
     }
 }
 
-static void cliProfile(char *cmdline)
+static void cliProfile(const char *cmdline)
 {
     uint8_t len;
     int i;
@@ -751,7 +754,7 @@ static void cliProfile(char *cmdline)
     }
 }
 
-static void cliSave(char *cmdline)
+static void cliSave( const char *cmdline)
 {
     uartPrint("Saving...");
     writeEEPROM(0, true);
@@ -822,7 +825,7 @@ static void cliSetVar(const clivalue_t *var, const int32_t value)
     }
 }
 
-static void cliSet(char *cmdline)
+static void cliSet( const char *cmdline)
 {
     uint32_t i;
     uint32_t len;
@@ -874,7 +877,7 @@ static void cliSet(char *cmdline)
     }
 }
 
-static void cliStatus(char *cmdline)
+static void cliStatus( const char *cmdline)
 {
     uint8_t i;
     uint32_t mask;
@@ -900,7 +903,7 @@ static void cliStatus(char *cmdline)
     printf("Cycle Time: %d, I2C Errors: %d, config size: %d\r\n", cycleTime, i2cGetErrorCounter(), sizeof(master_t));
 }
 
-static void cliVersion(char *cmdline)
+static void cliVersion( const char *cmdline)
 {
     uartPrint("Afro32 CLI version 2.1 " __DATE__ " / " __TIME__);
 }
@@ -1011,14 +1014,14 @@ void cliProcess(void)
             }
         } else if (*cliBuffer && (c == '\n' || c == '\r')) {
             // enter pressed
-            clicmd_t *cmd = NULL;
+            const clicmd_t *cmd = NULL;
             clicmd_t target;
             uartPrint("\r\n");
 
             target.name = cliBuffer;
             target.param = NULL;
 
-            cmd = bsearch(&target, cmdTable, CMD_COUNT, sizeof cmdTable[0], cliCompare);
+            cmd = (const clicmd_t*)bsearch(&target, cmdTable, CMD_COUNT, sizeof cmdTable[0], cliCompare);
             if (cmd)
                 cmd->func(cliBuffer + strlen(cmd->name) + 1);
             else

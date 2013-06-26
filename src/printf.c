@@ -30,7 +30,9 @@
  */
 
 #include "board.h"
+
 #ifdef USE_LAME_PRINTF
+
 #define PRINTF_LONG_SUPPORT
 
 typedef void (*putcf) (void *, char);
@@ -107,9 +109,9 @@ static int a2d(char ch)
         return -1;
 }
 
-static char a2i(char ch, char **src, int base, int *nump)
+static char a2i(char ch, const char **src, int base, int *nump)
 {
-    char *p = *src;
+    const char *p = *src;
     int num = 0;
     int digit;
     while ((digit = a2d(ch)) >= 0) {
@@ -136,7 +138,7 @@ static void putchw(void *putp, putcf putf, int n, char z, char *bf)
         putf(putp, ch);
 }
 
-void tfp_format(void *putp, putcf putf, char *fmt, va_list va)
+void tfp_format(void *putp, putcf putf, const char *fmt, va_list va)
 {
     char bf[12];
 
@@ -221,13 +223,13 @@ void init_printf(void *putp, void (*putf) (void *, char))
     stdout_putp = putp;
 }
 
-void tfp_printf(char *fmt, ...)
+void tfp_printf( const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
     tfp_format(stdout_putp, stdout_putf, fmt, va);
     va_end(va);
-    while (!uartTransmitEmpty());
+    while (!isUartTransmitEmpty());
 }
 
 static void putcp(void *p, char c)
@@ -237,7 +239,7 @@ static void putcp(void *p, char c)
 
 
 
-void tfp_sprintf(char *s, char *fmt, ...)
+void tfp_sprintf( const char *s, char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
