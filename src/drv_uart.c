@@ -8,10 +8,11 @@
 
 // Receive buffer, circular DMA
 volatile uint8_t rxBuffer[UART_BUFFER_SIZE];
-uint32_t rxDMAPos = 0;
+volatile uint32_t rxDMAPos = 0;
 volatile uint8_t txBuffer[UART_BUFFER_SIZE];
-uint32_t txBufferTail = 0;
-uint32_t txBufferHead = 0;
+volatile uint32_t txBufferTail = 0;
+volatile uint32_t txBufferHead = 0;
+volatile bool txDMAEmpty = false;
 
 static void uartTxDMA(void)
 {
@@ -23,7 +24,7 @@ static void uartTxDMA(void)
         DMA1_Channel4->CNDTR = UART_BUFFER_SIZE - txBufferTail;
         txBufferTail = 0;
     }
-
+    txDMAEmpty = false;
     DMA_Cmd(DMA1_Channel4, ENABLE);
 }
 
@@ -34,6 +35,8 @@ void DMA1_Channel4_IRQHandler(void)
 
     if (txBufferHead != txBufferTail)
         uartTxDMA();
+    else
+        txDMAEmpty = true;
 }
 
 void uartInit(uint32_t speed)
@@ -104,12 +107,17 @@ void uartInit(uint32_t speed)
     USART_Cmd(USART1, ENABLE);
 }
 
-uint16_t uartAvailable(void)
+bool isUartAvailable(void)
 {
     return (DMA_GetCurrDataCounter(DMA1_Channel5) != rxDMAPos) ? true : false;
 }
 
-bool uartTransmitEmpty(void)
+bool isUartTransmitDMAEmpty(void)
+{
+    return txDMAEmpty;
+}
+
+bool isUartTransmitEmpty(void)
 {
     return (txBufferTail == txBufferHead);
 }
@@ -128,7 +136,7 @@ uint8_t uartRead(void)
 
 uint8_t uartReadPoll(void)
 {
-    while (!uartAvailable()); // wait for some bytes
+    while (!isUartAvailable()); // wait for some bytes
     return uartRead();
 }
 
@@ -221,7 +229,7 @@ void uart2Write(uint8_t ch)
     USART_ITConfig(USART2, USART_IT_TXE, ENABLE);
 }
 
-bool uart2TransmitEmpty(void)
+bool isUart2TransmitEmpty(void)
 {
     return tx2BufferTail == tx2BufferHead;
 }

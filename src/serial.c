@@ -25,6 +25,7 @@
 #define MSP_PIDNAMES             117    //out message         the PID names
 #define MSP_WP                   118    //out message         get a WP, WP# is in the payload, returns (WP#, lat, lon, alt, flags) WP#0-home, WP#16-poshold
 #define MSP_BOXIDS               119    //out message         get the permanent IDs associated to BOXes
+#define MSP_SERVO_CONF           120    //out message         Servo settings
 
 #define MSP_SET_RAW_RC           200    //in message          8 rc chan
 #define MSP_SET_RAW_GPS          201    //in message          fix, numsat, lat, lon, alt, speed
@@ -38,6 +39,8 @@
 #define MSP_SET_WP               209    //in message          sets a given WP (WP#,lat, lon, alt, flags)
 #define MSP_SELECT_SETTING       210    //in message          Select Setting Number (0-2)
 #define MSP_SET_HEAD             211    //in message          define a new heading hold direction
+#define MSP_SET_SERVO_CONF       212    //in message          Servo settings
+#define MSP_SET_MOTOR            214    //in message          PropBalance function
 
 // #define MSP_BIND                 240    //in message          no param
 
@@ -50,6 +53,7 @@
 #define MSP_UID                  160    //out message         Unique device ID
 #define MSP_ACC_TRIM             240    //out message         get acc angle trim values
 #define MSP_SET_ACC_TRIM         239    //in message          set acc angle trim values
+#define MSP_GPSSVINFO            164    //out message         get Signal Strength (only U-Blox)
 
 #define INBUF_SIZE 64
 
@@ -57,7 +61,7 @@ struct box_t {
     const uint8_t boxIndex;         // this is from boxnames enum
     const char *boxName;            // GUI-readable box name
     const uint8_t permanentId;      // 
-} const boxes[] = {
+} boxes[] = {
     { BOXARM, "ARM;", 0 },
     { BOXANGLE, "ANGLE;", 1 },
     { BOXHORIZON, "HORIZON;", 2 },
@@ -86,7 +90,6 @@ static uint8_t availableBoxes[CHECKBOXITEMS];
 // this is the number of filled indexes in above array
 static uint8_t numberBoxItems = 0;
 
-#if 0
 static const char boxnames[] =
     "ARM;"
     "ANGLE;"
@@ -109,7 +112,7 @@ static const char boxnames[] =
     "GOVERNOR;"
     "OSD SW;";
 
-static const uint8_t boxids[] = {      // permanent IDs associated to boxes. This way, you can rely on an ID number to identify a BOX function.
+const uint8_t boxids[] = {      // permanent IDs associated to boxes. This way, you can rely on an ID number to identify a BOX function.
     0,                          // "ARM;"
     1,                          // "ANGLE;"
     2,                          // "HORIZON;"
@@ -131,8 +134,6 @@ static const uint8_t boxids[] = {      // permanent IDs associated to boxes. Thi
     18,                         // "GOVERNOR;"
     19,                         // "OSD_SWITCH;"
 };
-
-#endif
 
 static const char pidnames[] =
     "ROLL;"
@@ -373,47 +374,65 @@ static void evaluateCommand(void)
         serialize16(cycleTime);
         serialize16(i2cGetErrorCounter());
         serialize16(sensors(SENSOR_ACC) | sensors(SENSOR_BARO) << 1 | sensors(SENSOR_MAG) << 2 | sensors(SENSOR_GPS) << 3 | sensors(SENSOR_SONAR) << 4);
-        //Serialize the boxes in the order we delivered them
+#if FUCK_MULTIWII
+        // OK, so you waste all the fucking time to have BOXNAMES and BOXINDEXES etc, and then you go ahead and serialize enabled shit simply by stuffing all
+        // the bits in order, instead of setting the enabled bits based on BOXINDEX. WHERE IS THE FUCKING LOGIC IN THIS, FUCKWADS.
+        serialize32(f.ANGLE_MODE << BOXANGLE | f.HORIZON_MODE << BOXHORIZON |
+                    f.BARO_MODE << BOXBARO | f.MAG_MODE << BOXMAG | f.HEADFREE_MODE << BOXHEADFREE | rcOptions[BOXHEADADJ] << BOXHEADADJ |
+                    rcOptions[BOXCAMSTAB] << BOXCAMSTAB | rcOptions[BOXCAMTRIG] << BOXCAMTRIG |
+                    f.GPS_HOME_MODE << BOXGPSHOME | f.GPS_HOLD_MODE << BOXGPSHOLD |
+                    f.PASSTHRU_MODE << BOXPASSTHRU |
+                    rcOptions[BOXBEEPERON] << BOXBEEPERON |
+                    rcOptions[BOXLEDMAX] << BOXLEDMAX |
+                    rcOptions[BOXLLIGHTS] << BOXLLIGHTS |
+                    rcOptions[BOXVARIO] << BOXVARIO |
+                    rcOptions[BOXCALIB] << BOXCALIB |
+                    rcOptions[BOXGOV] << BOXGOV |
+                    rcOptions[BOXOSD] << BOXOSD |
+                    f.ARMED << BOXARM);
+#else
+        // Serialize the boxes in the order we delivered them
         tmp = 0;
-        for ( i = 0; i < numberBoxItems; i++ ) {
-        	uint8_t val, box = availableBoxes[i];
-        	switch ( box ) {
-        	//Handle the special cases
-        	case BOXANGLE:
-        		val = f.ANGLE_MODE;
-        		break;
-        	case BOXHORIZON:
-        		val = f.HORIZON_MODE;
-        		break;
-        	case BOXMAG:
-        		val = f.MAG_MODE;
-        		break;
-        	case BOXBARO:
-        		val = f.BARO_MODE;
-        		break;
-        	case BOXHEADFREE:
-        		val = f.HEADFREE_MODE;
-        		break;
-        	case BOXGPSHOME:
-        		val = f.GPS_HOME_MODE;
-        		break;
-        	case BOXGPSHOLD:
-        		val = f.GPS_HOLD_MODE;
-        		break;
-        	case BOXPASSTHRU:
-        		val = f.PASSTHRU_MODE;
-        		break;
-        	case BOXARM:
-        		val = f.ARMED;
-        		break;
-        	default:
-        		//These just directly rely on their RC inputs
-        		val = rcOptions[ box ];
-        		break;
-        	}
-        	tmp |= ( val << i );
+        for (i = 0; i < numberBoxItems; i++) {
+            uint8_t val, box = availableBoxes[i];
+            switch (box) {
+                // Handle the special cases
+                case BOXANGLE:
+                    val = f.ANGLE_MODE;
+                    break;
+                case BOXHORIZON:
+                    val = f.HORIZON_MODE;
+                    break;
+                case BOXMAG:
+                    val = f.MAG_MODE;
+                    break;
+                case BOXBARO:
+                    val = f.BARO_MODE;
+                    break;
+                case BOXHEADFREE:
+                    val = f.HEADFREE_MODE;
+                    break;
+                case BOXGPSHOME:
+                    val = f.GPS_HOME_MODE;
+                    break;
+                case BOXGPSHOLD:
+                    val = f.GPS_HOLD_MODE;
+                    break;
+                case BOXPASSTHRU:
+                    val = f.PASSTHRU_MODE;
+                    break;
+                case BOXARM:
+                    val = f.ARMED;
+                    break;
+                default:
+                    // These just directly rely on their RC inputs
+                    val = rcOptions[ box ];
+                    break;
+            }
+            tmp |= (val << i);
         }
-        serialize32( tmp );
+        serialize32(tmp);
+#endif
         serialize8(mcfg.current_profile);
         break;
     case MSP_RAW_IMU:
@@ -502,6 +521,7 @@ static void evaluateCommand(void)
             serialize16(cfg.activate[availableBoxes[i]]);
         break;
     case MSP_BOXNAMES:
+        // headSerialReply(sizeof(boxnames) - 1);
         serializeBoxNamesReply();
         break;
     case MSP_BOXIDS:
@@ -598,7 +618,16 @@ static void evaluateCommand(void)
         serialize32(U_ID_1);
         serialize32(U_ID_2);
         break;
-
+    case MSP_GPSSVINFO:
+        headSerialReply(1 + (GPS_numCh * 4));
+        serialize8(GPS_numCh);
+           for (i = 0; i < GPS_numCh; i++){
+               serialize8(GPS_svinfo_chn[i]);
+               serialize8(GPS_svinfo_svid[i]);
+               serialize8(GPS_svinfo_quality[i]);
+               serialize8(GPS_svinfo_cno[i]);
+            }
+        break;
     default:                   // we do not know how to handle the (valid) message, indicate error MSP $M!
         headSerialError(0);
         break;
@@ -639,7 +668,7 @@ void serialCom(void)
         return;
     }
 
-    while (uartAvailable()) {
+    while (isUartAvailable()) {
         c = uartRead();
 
         if (c_state == IDLE) {
@@ -676,7 +705,7 @@ void serialCom(void)
             c_state = IDLE;
         }
     }
-    if (!cliMode && !uartAvailable() && feature(FEATURE_TELEMETRY) && f.ARMED) { // The first 2 conditions should never evaluate to true but I'm putting it here anyway - silpstream
+    if (!cliMode && !isUartAvailable() && feature(FEATURE_TELEMETRY) && f.ARMED) { // The first 2 conditions should never evaluate to true but I'm putting it here anyway - silpstream
         sendTelemetry();
         return;
     }
